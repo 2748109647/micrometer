@@ -186,6 +186,50 @@ class DefaultMeterObservationHandlerTest {
             .containsExactly(Tag.of("error.type", SocketTimeoutException.class.getName()));
     }
 
+    @Test
+    void shouldFallBackToExceptionSimpleNameWhenErrorTagValueReturnsNull() {
+        ObservationRegistry observationRegistry = registryWith(
+                DefaultMeterObservationHandler.builder(this.meterRegistry)
+                    .includeActiveObservationLongTaskTimer(true)
+                    .errorTagName("error.type")
+                    .errorTagValue(error -> null)
+                    .build());
+
+        Observation.createNotStarted("test.observation", observationRegistry)
+            .start()
+            .error(new SocketTimeoutException("simulated"))
+            .stop();
+
+        assertThat(meterRegistry.get("test.observation")
+            .tags("error.type", SocketTimeoutException.class.getSimpleName())
+            .timer()
+            .count()).isEqualTo(1);
+        assertThat(meterRegistry.get("test.observation.active").longTaskTimer().activeTasks()).isZero();
+    }
+
+    @Test
+    void shouldFallBackToExceptionSimpleNameWhenErrorTagValueThrows() {
+        ObservationRegistry observationRegistry = registryWith(
+                DefaultMeterObservationHandler.builder(this.meterRegistry)
+                    .includeActiveObservationLongTaskTimer(true)
+                    .errorTagName("error.type")
+                    .errorTagValue(error -> {
+                        throw new IllegalArgumentException("cannot derive tag");
+                    })
+                    .build());
+
+        Observation.createNotStarted("test.observation", observationRegistry)
+            .start()
+            .error(new SocketTimeoutException("simulated"))
+            .stop();
+
+        assertThat(meterRegistry.get("test.observation")
+            .tags("error.type", SocketTimeoutException.class.getSimpleName())
+            .timer()
+            .count()).isEqualTo(1);
+        assertThat(meterRegistry.get("test.observation.active").longTaskTimer().activeTasks()).isZero();
+    }
+
     @Nested
     @SuppressWarnings("deprecation")
     class DeprecatedConstructors {

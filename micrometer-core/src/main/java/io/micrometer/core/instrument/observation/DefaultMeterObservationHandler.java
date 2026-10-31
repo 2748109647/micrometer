@@ -161,7 +161,17 @@ public class DefaultMeterObservationHandler implements MeterObservationHandler<O
 
     private String getErrorValue(Observation.Context context) {
         Throwable error = context.getError();
-        return error != null ? this.errorTagValue.apply(error) : KeyValue.NONE_VALUE;
+        if (error == null) {
+            return KeyValue.NONE_VALUE;
+        }
+
+        try {
+            String errorTagValue = this.errorTagValue.apply(error);
+            return errorTagValue != null ? errorTagValue : error.getClass().getSimpleName();
+        }
+        catch (RuntimeException ex) {
+            return error.getClass().getSimpleName();
+        }
     }
 
     private List<Tag> createTags(Observation.Context context) {
@@ -241,7 +251,8 @@ public class DefaultMeterObservationHandler implements MeterObservationHandler<O
         /**
          * Set the function used to derive the error tag value from an exception. The
          * function is only called when the observation has an error. Defaults to the
-         * exception's simple class name.
+         * exception's simple class name. If the function returns {@code null} or throws a
+         * {@link RuntimeException}, the exception's simple class name is used instead.
          * @param errorTagValue the function used to derive the error tag value
          * @return this builder
          */
